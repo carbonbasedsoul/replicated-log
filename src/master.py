@@ -8,29 +8,33 @@ app = Flask(__name__)
 logger = setup_logger("Master")
 
 messages = []
+sequence_counter = 0
 
-# comma-separated list of Secondary URLs
 SECONDARY_URLS = os.getenv("SECONDARY_URLS").split(",")
 
 
-def replicate_to_secondaries(message):
+def replicate_to_secondaries(message_obj):
     """Send message to all Secondaries and wait for ACKs (blocking)."""
     for secondary_url in SECONDARY_URLS:
         logger.info(f"Replicating to {secondary_url}")
-        requests.post(f"{secondary_url}/replicate", json={"message": message})
+        requests.post(f"{secondary_url}/replicate", json=message_obj)
         logger.info(f"ACK from {secondary_url}")
 
 
 @app.route("/messages", methods=["POST"])
 def append_message():
+    global sequence_counter
+
     start_time = time.time()
     message = request.json["message"]
 
-    logger.info(f"Received: {message}")
+    sequence_counter += 1
+    message_obj = {"seq": sequence_counter, "message": message}
 
-    # store the message and replicate to secondaries
-    messages.append(message)
-    replicate_to_secondaries(message)
+    logger.info(f"Received: seq={sequence_counter} msg={message}")
+
+    messages.append(message_obj)
+    replicate_to_secondaries(message_obj)
 
     elapsed = time.time() - start_time
     logger.info(f"Message stored and replicated, duration: {int(elapsed)}s")
