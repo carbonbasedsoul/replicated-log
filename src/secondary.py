@@ -7,6 +7,7 @@ app = Flask(__name__)
 logger = setup_logger("Secondary")
 
 messages = []
+max_seq = 0
 
 DELAY_SECONDS = int(os.getenv("DELAY_SECONDS", "0"))
 
@@ -18,10 +19,20 @@ def get_messages():
 
 @app.route("/replicate", methods=["POST"])
 def replicate_message():
-    message = request.json["message"]
+    global max_seq
 
-    logger.info(f"Received: {message}")
-    messages.append(message)
+    message_obj = request.json
+    seq = message_obj["seq"]
+    message = message_obj["message"]
+
+    logger.info(f"Received: seq={seq} msg={message}")
+
+    if seq <= max_seq:
+        logger.info(f"Duplicate seq={seq}, ignoring")
+        return {"status": "ack"}, 200
+
+    messages.append(message_obj)
+    max_seq = seq
 
     if DELAY_SECONDS > 0:
         logger.info(f"Sleeping {DELAY_SECONDS}s...")
