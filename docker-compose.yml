@@ -1,0 +1,25 @@
+version: "3.8"
+
+services:
+  master:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - SECONDARY_URLS=http://secondary1:5001,http://secondary2:5001
+    command: uv run src/master.py
+    depends_on:
+      - secondary1
+      - secondary2
+
+  secondary1:
+    build: .
+    environment:
+      - DELAY_SECONDS=5
+    command: uv run src/secondary.py
+
+  secondary2:
+    build: .
+    environment:
+      - DELAY_SECONDS=0
+    command: uv run src/secondary.py
