@@ -9,22 +9,21 @@ messages = []
 
 @app.route("/messages", methods=["GET"])
 def get_messages():
-    logger.info(f"Fetching {len(messages)} messages")
     return {"messages": messages}
 
 
 @app.route("/replicate", methods=["POST"])
 def replicate_message():
-    message = request.json.get("message")
+    message = request.json["message"]
 
-    if not message:
-        return {"error": "Message required"}, 400
-
+    logger.info(f"Received: {message}")
     messages.append(message)
-    logger.info(f"Replicated: {message}")
 
+
+    logger.info("Sending ACK")
     return {"status": "ack"}, 200
 
 
 if __name__ == "__main__":
+    logger.info("Secondary starting on port 5001")
     app.run(host="0.0.0.0", port=5001)
