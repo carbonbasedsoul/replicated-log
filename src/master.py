@@ -1,3 +1,5 @@
+import os
+import time
 import requests
 from flask import Flask, request
 from logger import setup_logger
@@ -29,6 +31,9 @@ def append_message():
     # store the message and replicate to secondaries
     messages.append(message)
     replicate_to_secondaries(message)
+
+    elapsed = time.time() - start_time
+    logger.info(f"Message stored and replicated, duration: {int(elapsed)}s")
 
     return {"status": "success"}, 201
 
