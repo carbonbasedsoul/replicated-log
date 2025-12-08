@@ -31,12 +31,12 @@ def replicate_message():
         logger.info(f"Duplicate seq={seq}, ignoring")
         return {"status": "ack"}, 200
 
-    messages.append(message_obj)
-    max_seq = seq
-
     if DELAY_SECONDS > 0:
         logger.info(f"Sleeping {DELAY_SECONDS}s...")
         time.sleep(DELAY_SECONDS)
+
+    messages.append(message_obj)
+    max_seq = seq
 
     logger.info("Sending ACK")
     return {"status": "ack"}, 200

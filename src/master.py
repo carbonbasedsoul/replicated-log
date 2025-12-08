@@ -17,7 +17,7 @@ SECONDARY_URLS = os.getenv("SECONDARY_URLS").split(",")
 def send_to_secondary(secondary_url, message_obj):
     """Send message to one Secondary and return when ACK received."""
     logger.info(f"Replicating to {secondary_url}")
-    requests.post(f"{secondary_url}/replicate", json=message_obj, timeout=10)
+    requests.post(f"{secondary_url}/replicate", json=message_obj)
     logger.info(f"ACK from {secondary_url}")
     return
 
@@ -25,11 +25,11 @@ def send_to_secondary(secondary_url, message_obj):
 def replicate_to_secondaries(message_obj, w):
     """Send message to all Secondaries concurrently, wait for w ACKs."""
     if w == 1:  # w=1
-        logger.info("w=1: master ACK, not waiting for secondaries")
+        logger.info("Responding to client, not waiting for secondaries")
         executor = ThreadPoolExecutor()
         for secondary_url in SECONDARY_URLS:
             executor.submit(send_to_secondary, secondary_url, message_obj)
-        executor.shutdown(wait=False)  # Don't wait for threads to finish
+        executor.shutdown(wait=False)
         return
 
     # w > 1: wait for (w-1) secondary ACKs
@@ -46,7 +46,7 @@ def replicate_to_secondaries(message_obj, w):
         ack_count += 1
         if ack_count >= acks_needed:
             logger.info(f"Got {acks_needed} ACKs, responding to client")
-            executor.shutdown(wait=False)  # Don't wait for remaining threads
+            executor.shutdown(wait=False)
             return
 
 
@@ -54,7 +54,6 @@ def replicate_to_secondaries(message_obj, w):
 def append_message():
     global sequence_counter
 
-    start_time = time.time()
     message = request.json["message"]
     w = request.json.get("w", 1)  # Write concern: default w=1
 
@@ -64,11 +63,8 @@ def append_message():
     logger.info(f"Received: seq={sequence_counter} msg={message} w={w}")
 
     messages.append(message_obj)
-    logger.info(f"Message #{sequence_counter} stored")
+    logger.info("Message stored on master")
     replicate_to_secondaries(message_obj, w)
-
-    elapsed = time.time() - start_time
-    logger.info(f"Responding to client, {int(elapsed)}s elapsed")
 
     return {"status": "success"}, 201
 
