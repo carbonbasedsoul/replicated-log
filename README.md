@@ -1,7 +1,5 @@
 # Replicated log, iteration 1
 
-## Run
-
 in terminal 1:
 
 ```bash
@@ -15,3 +13,5 @@ curl http://localhost:5000/messages -H "Content-Type: application/json" -d '{"me
 ```
 
 Result:
+![alt text](image-1.png)
+Logs show that master responded after receiving ACKs from both secondaries, including the delayed one (which caused the response to take 5s).
