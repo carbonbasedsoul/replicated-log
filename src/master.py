@@ -3,37 +3,68 @@ import time
 import requests
 from flask import Flask, request
 from logger import setup_logger
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 app = Flask(__name__)
 logger = setup_logger("Master")
 
 messages = []
+sequence_counter = 0
 
-# comma-separated list of Secondary URLs
 SECONDARY_URLS = os.getenv("SECONDARY_URLS").split(",")
 
 
-def replicate_to_secondaries(message):
-    """Send message to all Secondaries and wait for ACKs (blocking)."""
-    for secondary_url in SECONDARY_URLS:
-        logger.info(f"Replicating to {secondary_url}")
-        requests.post(f"{secondary_url}/replicate", json={"message": message})
-        logger.info(f"ACK from {secondary_url}")
+def send_to_secondary(secondary_url, message_obj):
+    """Send message to one Secondary and return when ACK received."""
+    logger.info(f"Replicating to {secondary_url}")
+    requests.post(f"{secondary_url}/replicate", json=message_obj)
+    logger.info(f"ACK from {secondary_url}")
+    return
+
+
+def replicate_to_secondaries(message_obj, w):
+    """Send message to all Secondaries concurrently, wait for w ACKs."""
+    if w == 1:  # w=1
+        logger.info("Responding to client, not waiting for secondaries")
+        executor = ThreadPoolExecutor()
+        for secondary_url in SECONDARY_URLS:
+            executor.submit(send_to_secondary, secondary_url, message_obj)
+        executor.shutdown(wait=False)
+        return
+
+    # w > 1: wait for (w-1) secondary ACKs
+    acks_needed = w - 1
+    logger.info(f"w={w}: waiting for {acks_needed} secondary ACKs")
+
+    executor = ThreadPoolExecutor()
+    futures = [
+        executor.submit(send_to_secondary, url, message_obj) for url in SECONDARY_URLS
+    ]
+
+    ack_count = 0
+    for future in as_completed(futures):
+        ack_count += 1
+        if ack_count >= acks_needed:
+            logger.info(f"Got {acks_needed} ACKs, responding to client")
+            executor.shutdown(wait=False)
+            return
 
 
 @app.route("/messages", methods=["POST"])
 def append_message():
-    start_time = time.time()
+    global sequence_counter
+
     message = request.json["message"]
+    w = request.json.get("w", 1)  # Write concern: default w=1
 
-    logger.info(f"Received: {message}")
+    sequence_counter += 1
+    message_obj = {"seq": sequence_counter, "message": message}
 
-    # store the message and replicate to secondaries
-    messages.append(message)
-    replicate_to_secondaries(message)
+    logger.info(f"Received: seq={sequence_counter} msg={message} w={w}")
 
-    elapsed = time.time() - start_time
-    logger.info(f"Message stored and replicated, duration: {int(elapsed)}s")
+    messages.append(message_obj)
+    logger.info("Message stored on master")
+    replicate_to_secondaries(message_obj, w)
 
     return {"status": "success"}, 201
 
