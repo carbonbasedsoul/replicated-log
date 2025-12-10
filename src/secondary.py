@@ -5,12 +5,11 @@ from flask import Flask, request
 from logger import setup_logger
 
 app = Flask(__name__)
-logger = setup_logger("Secondary")
+lg = setup_logger("Secondary")
 
-messages = []
-max_seq = 0
+messages = {}
+max_id = 0
 
-ERROR_RATE = float(os.getenv("ERROR_RATE", "0"))
 
 
 @app.route("/messages", methods=["GET"])
@@ -20,31 +19,25 @@ def get_messages():
 
 @app.route("/replicate", methods=["POST"])
 def replicate_message():
-    global max_seq
+    global max_id
 
-    message_obj = request.json
-    seq = message_obj["seq"]
-    message = message_obj["message"]
+    msg_obj = request.json
+    msg_id = msg_obj["id"]
 
-    logger.info(f"Received: seq={seq} msg={message}")
 
-    if seq <= max_seq:
-        logger.info(f"Duplicate seq={seq}, ignoring")
+
+    # check for duplication
+    if msg_id <= max_id:
+        lg.info(f"[id={msg_id}] Duplicate")
         return {"status": "ack"}, 200
 
-    messages.append(message_obj)
-    max_seq = seq
+    # store the message
+    messages[msg_id] = msg_obj
+    max_id = msg_id
 
-    if random.random() < ERROR_RATE:
-        logger.info("Injecting random error after storing")
-        return {"error": "random failure"}, 500
-
-    logger.info("Sending ACK")
+    lg.info("ACK sent")
     return {"status": "ack"}, 200
 
 
 if __name__ == "__main__":
-    logger.info("Secondary starting on port 5001")
-    if ERROR_RATE > 0:
-        logger.info(f"Error injection enabled: {ERROR_RATE * 100}% chance")
     app.run(host="0.0.0.0", port=5001)
