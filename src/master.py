@@ -15,11 +15,31 @@ SECONDARY_URLS = os.getenv("SECONDARY_URLS").split(",")
 
 
 def send_to_secondary(secondary_url, message_obj):
-    """Send message to one Secondary and return when ACK received."""
-    logger.info(f"Replicating to {secondary_url}")
-    requests.post(f"{secondary_url}/replicate", json=message_obj)
-    logger.info(f"ACK from {secondary_url}")
-    return
+    """Send message to one Secondary with retry until ACK received."""
+    retry_interval = 3
+
+    attempt = 1
+
+    while True:
+        try:
+            logger.info(f"Replicating to {secondary_url} (attempt {attempt})")
+            response = requests.post(
+                f"{secondary_url}/replicate", json=message_obj, timeout=5
+            )
+            if response.status_code == 200:
+                logger.info(f"ACK from {secondary_url}")
+                return
+            else:
+                logger.info(
+                    f"Error from {secondary_url}: {response.status_code}, retrying in {retry_interval}s"
+                )
+        except requests.exceptions.RequestException as e:
+            logger.info(
+                f"Failed to reach {secondary_url}: {type(e).__name__}, retrying in {retry_interval}s"
+            )
+
+        time.sleep(retry_interval)
+        attempt += 1
 
 
 def replicate_to_secondaries(message_obj, w):
