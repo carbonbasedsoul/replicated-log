@@ -1,5 +1,6 @@
 import os
 import time
+import random
 from flask import Flask, request
 from logger import setup_logger
 
@@ -9,7 +10,7 @@ logger = setup_logger("Secondary")
 messages = []
 max_seq = 0
 
-DELAY_SECONDS = int(os.getenv("DELAY_SECONDS", "0"))
+ERROR_RATE = float(os.getenv("ERROR_RATE", "0"))
 
 
 @app.route("/messages", methods=["GET"])
@@ -31,12 +32,12 @@ def replicate_message():
         logger.info(f"Duplicate seq={seq}, ignoring")
         return {"status": "ack"}, 200
 
-    if DELAY_SECONDS > 0:
-        logger.info(f"Sleeping {DELAY_SECONDS}s...")
-        time.sleep(DELAY_SECONDS)
-
     messages.append(message_obj)
     max_seq = seq
+
+    if random.random() < ERROR_RATE:
+        logger.info("Injecting random error after storing")
+        return {"error": "random failure"}, 500
 
     logger.info("Sending ACK")
     return {"status": "ack"}, 200
@@ -44,6 +45,6 @@ def replicate_message():
 
 if __name__ == "__main__":
     logger.info("Secondary starting on port 5001")
-    if DELAY_SECONDS > 0:
-        logger.info(f"Delay configured: {DELAY_SECONDS}s")
+    if ERROR_RATE > 0:
+        logger.info(f"Error injection enabled: {ERROR_RATE * 100}% chance")
     app.run(host="0.0.0.0", port=5001)
