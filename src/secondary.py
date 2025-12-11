@@ -22,11 +22,12 @@ def store_message(msg_obj):
 
     msg_id = msg_obj["id"]
 
-    if msg_id <= max_id:
+    if msg_id in messages:
         return False  # duplicate
 
     messages[msg_id] = msg_obj
-    max_id = msg_id
+    if msg_id > max_id:
+        max_id = msg_id
 
     while max_contiguous_id + 1 in messages:
         max_contiguous_id += 1
@@ -56,9 +57,10 @@ def replicate_message():
 
 def catch_up_from_master():
     """Request missing messages from master on startup."""
+    current_max_id = max_id
     time.sleep(2)
 
-    response = requests.post(f"{MASTER_URL}/catch-up", json={"max_id": max_id})
+    response = requests.post(f"{MASTER_URL}/catch-up", json={"max_id": current_max_id})
     missing = response.json()["messages"]
 
     if missing:
