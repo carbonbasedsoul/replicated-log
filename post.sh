@@ -27,20 +27,3 @@ END=$(date +%s.%N)
 ELAPSED=$(echo "$END - $START" | bc)
 echo "response took ${ELAPSED}s"
 echo ""
-
-echo "inconsistency: master vs delayed secondary"
-echo "master: $(curl -s localhost:5000/messages)"
-echo "secondary-delayed: $(curl -s localhost:5002/messages)"
-echo ""
-
-echo "waiting 6s for eventual consistency..."
-sleep 6
-echo ""
-
-echo "eventual consistency achieved"
-echo "master: $(curl -s localhost:5000/messages)"
-echo "secondary-delayed: $(curl -s localhost:5002/messages)"
-echo ""
-
-echo "docker-compose master logs:"
-docker-compose logs master | tail -8
