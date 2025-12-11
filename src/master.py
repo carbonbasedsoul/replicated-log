@@ -83,5 +83,13 @@ def get_messages():
     return {"messages": messages}
 
 
+@app.route("/catch-up", methods=["POST"])
+def catch_up():
+    max_id = request.json.get("max_id", 0)
+    missing = [msg for msg in messages if msg["id"] > max_id]
+    lg.info(f"Catch-up: sending {len(missing)} messages after id={max_id}")
+    return {"messages": missing}
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
