@@ -16,9 +16,6 @@ services:
     container_name: secondary-1
     ports:
       - "5001:5001"
-    environment:
-      - ERROR_RATE=0.8
-      - REJECT_ID=3
     command: uv run src/secondary.py
 
   secondary-2:
