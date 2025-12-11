@@ -2,19 +2,20 @@
 
 `tests/` - test suite generated with Claude Opus 4.5 to test the solution in a compact and comprehensive way.
 
+
 ## 1. Self-check acceptance
 
 > Self-check acceptance test:
-Start M + S1
-send (Msg1, W=1) - Ok
-send (Msg2, W=2) - Ok
-send (Msg3, W=3) - Wait
-send (Msg4, W=1) - Ok
-Start S2
-Check messages on S2 - [Msg1, Msg2, Msg3, Msg4]
+Start M + S1  
+send (Msg1, W=1) - Ok  
+send (Msg2, W=2) - Ok  
+send (Msg3, W=3) - Wait  
+send (Msg4, W=1) - Ok  
+Start S2  
+Check messages on S2 - [Msg1, Msg2, Msg3, Msg4]  
 
 
-```bash
+```zsh
 ❯ uv run tests/test_acceptance.py
 Acceptance Test
 ==================================================
@@ -32,6 +33,7 @@ Waiting for secondary-2 catch-up
 ✓ ACCEPTANCE TEST PASSED
 ```
 
+
 ## 2. Deduplication
 
 >Test deduplication with direct injection.
@@ -40,7 +42,7 @@ Waiting for secondary-2 catch-up
 >- Verify message appears exactly once
 
 
-```bash
+```zsh
 ❯ uv run tests/test_deduplication.py
 Deduplication Test
 ==================================================
@@ -55,6 +57,7 @@ Verifying message count...
 ✓ DEDUPLICATION TEST PASSED
 ```
 
+
 ## 3. Total order
 
 >Test total order with direct injection.
@@ -63,7 +66,7 @@ Verifying message count...
 >- Verify secondary hides msg5 until msg4 arrives
 
 
-```bash
+```zsh
 ❮ uv run test_total_order.py
 Total Order Test
 ==================================================
