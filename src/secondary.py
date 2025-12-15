@@ -7,7 +7,7 @@ from flask import Flask, request
 from logger import setup_logger
 
 app = Flask(__name__)
-lg = setup_logger("Secondary")
+logger = setup_logger("Secondary")
 
 messages = {}
 max_id = 0
@@ -48,11 +48,16 @@ def replicate_message():
     msg_obj = request.json
 
     if store_message(msg_obj):
-        lg.info("ACK sent")
+        logger.info("ACK sent")
     else:
-        lg.info(f"[id={msg_obj['id']}] Duplicate, skipping")
+        logger.info(f"[id={msg_obj['id']}] Duplicate, skipping")
 
     return {"status": "ack"}, 200
+
+
+@app.route("/health", methods=["GET"])
+def health():
+    return {"status": "ok"}
 
 
 def catch_up_from_master():
@@ -66,7 +71,7 @@ def catch_up_from_master():
     if missing:
         for msg_obj in missing:
             store_message(msg_obj)
-        lg.info(f"Caught up: {len(missing)} messages")
+        logger.info(f"Caught up: {len(missing)} messages")
 
 
 if __name__ == "__main__":
