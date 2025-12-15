@@ -10,7 +10,7 @@ from flask import Flask, request
 from logger import setup_logger
 
 app = Flask(__name__)
-lg = setup_logger("Master")
+logger = setup_logger("Master")
 
 messages = []
 msg_counter = 0
@@ -29,6 +29,7 @@ def send_to_secondary(url: str, msg_obj):
     attempt = 1
 
     while True:
+        # log first and every 5th attempt
         log_attempt: bool = attempt == 1 or attempt % 5 == 0
 
         try:
@@ -36,10 +37,10 @@ def send_to_secondary(url: str, msg_obj):
             if response.status_code == 200:
                 return
             elif log_attempt:
-                lg.info(f"Retrying {url} with msg-{msg_id} (attempt {attempt})")
+                logger.info(f"Retrying {url} with msg-{msg_id} (attempt {attempt})")
         except requests.exceptions.RequestException as e:
             if log_attempt:
-                lg.info(f"{url}: {type(e).__name__} (attempt {attempt})")
+                logger.info(f"{url}: {type(e).__name__} (attempt {attempt})")
 
         time.sleep(1)
         attempt += 1
@@ -79,11 +80,11 @@ def append_message():
     msg_obj: dict[str, int | str] = {"id": msg_counter, "message": msg}
     msg_obj = {"id": msg_counter, "message": msg}
 
-    lg.info(f"Received [id={msg_counter}, w={w}] msg: {msg}")
+    logger.info(f"Received [id={msg_counter}, w={w}] msg: {msg}")
 
     messages.append(msg_obj)
     replicate_to_secondaries(msg_obj, w)
-    lg.info("DONE: responding to client")
+    logger.info("DONE: responding to client")
 
     return {"status": "success"}, 201
 
@@ -97,7 +98,7 @@ def get_messages():
 def catch_up():
     max_id = request.json.get("max_id", 0)
     missing = [msg for msg in messages if msg["id"] > max_id]
-    lg.info(f"Catch-up: sending {len(missing)} messages after id={max_id}")
+    logger.info(f"Catch-up: sending {len(missing)} messages after id={max_id}")
     return {"messages": missing}
 
 
@@ -138,7 +139,7 @@ def heartbeat_loop():
                 new_status = "unhealthy"
 
             if new_status != old_status:
-                lg.info(f"{url}: {old_status} → {new_status}")
+                logger.info(f"{url}: {old_status} → {new_status}")
                 sec_health[url]["status"] = new_status
 
         time.sleep(3)
