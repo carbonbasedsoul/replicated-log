@@ -89,6 +89,23 @@ def append_message():
     msg = request.json["message"]
     w = request.json.get("w", 1)
 
+    # count healthy nodes
+    healthy_count = sum(
+        1 for health_data in sec_health.values() if health_data["status"] == "healthy"
+    )
+    available = healthy_count + 1  # +1 for master itself
+
+    # read-only mode if insufficient healthy nodes
+    if w > available:
+        logger.info(
+            f"Read-only mode: w={w} > available={available} (healthy secondaries: {healthy_count})"
+        )
+        return {
+            "error": "insufficient healthy replicas",
+            "required": w,
+            "available": available,
+        }, 503
+
     msg_counter += 1
     msg_obj: dict[str, int | str] = {"id": msg_counter, "message": msg}
     msg_obj = {"id": msg_counter, "message": msg}
