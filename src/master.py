@@ -1,9 +1,13 @@
 import os
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime
+
 import requests
 from flask import Flask, request
+
 from logger import setup_logger
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 app = Flask(__name__)
 lg = setup_logger("Master")
@@ -13,8 +17,13 @@ msg_counter = 0
 
 SECONDARY_URLS = os.getenv("SECONDARY_URLS").split(",")
 
+sec_health = {
+    url: {"status": "healthy", "last_seen": time.time(), "last_error": None}
+    for url in SECONDARY_URLS
+}
 
-def send_to_secondary(url, msg_obj):
+
+def send_to_secondary(url: str, msg_obj):
     """Send message to one Secondary with retry until ACK received."""
     msg_id = msg_obj["id"]
     attempt = 1
@@ -67,6 +76,7 @@ def append_message():
     w = request.json.get("w", 1)
 
     msg_counter += 1
+    msg_obj: dict[str, int | str] = {"id": msg_counter, "message": msg}
     msg_obj = {"id": msg_counter, "message": msg}
 
     lg.info(f"Received [id={msg_counter}, w={w}] msg: {msg}")
@@ -91,5 +101,49 @@ def catch_up():
     return {"messages": missing}
 
 
+@app.route("/health", methods=["GET"])
+def get_heartbeat():
+    heartbeat_summary = []
+    for url, health_data in sec_health.items():
+        heartbeat = {
+            "url": url,
+            "status": health_data["status"],
+            "last_seen": datetime.fromtimestamp(health_data["last_seen"]).isoformat(),
+            "last_error": health_data["last_error"],
+        }
+        heartbeat_summary.append(heartbeat)
+
+    return {"secondaries": heartbeat_summary}
+
+
+def heartbeat_loop():
+    while True:
+        for url in SECONDARY_URLS:
+            try:
+                response = requests.get(f"{url}/health", timeout=2)
+                if response.status_code == 200:
+                    sec_health[url]["last_seen"] = time.time()
+                    sec_health[url]["last_error"] = None
+            except requests.exceptions.RequestException as e:
+                sec_health[url]["last_error"] = f"{type(e).__name__}"
+
+            elapsed = time.time() - sec_health[url]["last_seen"]
+            old_status = sec_health[url]["status"]
+
+            if elapsed < 6:
+                new_status = "healthy"
+            elif elapsed < 9:
+                new_status = "suspected"
+            else:
+                new_status = "unhealthy"
+
+            if new_status != old_status:
+                lg.info(f"{url}: {old_status} → {new_status}")
+                sec_health[url]["status"] = new_status
+
+        time.sleep(3)
+
+
 if __name__ == "__main__":
+    threading.Thread(target=heartbeat_loop, daemon=True).start()
     app.run(host="0.0.0.0", port=5000)

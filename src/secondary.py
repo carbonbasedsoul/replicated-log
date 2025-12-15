@@ -55,6 +55,11 @@ def replicate_message():
     return {"status": "ack"}, 200
 
 
+@app.route("/health", methods=["GET"])
+def health():
+    return {"status": "ok"}
+
+
 def catch_up_from_master():
     """Request missing messages from master on startup."""
     current_max_id = max_id
