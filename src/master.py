@@ -18,7 +18,12 @@ msg_counter = 0
 SECONDARY_URLS = os.getenv("SECONDARY_URLS").split(",")
 
 sec_health = {
-    url: {"status": "healthy", "last_seen": time.time(), "last_error": None}
+    url: {
+        "status": "healthy",
+        "last_seen": time.time(),
+        "last_error": None,
+        "backoff_interval": 1.0,
+    }
     for url in SECONDARY_URLS
 }
 
@@ -35,6 +40,8 @@ def send_to_secondary(url: str, msg_obj):
         try:
             response = requests.post(f"{url}/replicate", json=msg_obj, timeout=5)
             if response.status_code == 200:
+                # reset backoff on successful delivery
+                sec_health[url]["backoff_interval"] = 1.0
                 return
             elif log_attempt:
                 logger.info(f"Retrying {url} with msg-{msg_id} (attempt {attempt})")
@@ -42,7 +49,13 @@ def send_to_secondary(url: str, msg_obj):
             if log_attempt:
                 logger.info(f"{url}: {type(e).__name__} (attempt {attempt})")
 
-        time.sleep(1)
+        interval = sec_health[url]["backoff_interval"]
+        time.sleep(interval)
+
+        # increase backoff if suspected/unhealthy, cap at 30s
+        if sec_health[url]["status"] in ["suspected", "unhealthy"]:
+            sec_health[url]["backoff_interval"] = min(interval * 2, 30)
+
         attempt += 1
 
 
@@ -111,6 +124,7 @@ def get_heartbeat():
             "status": health_data["status"],
             "last_seen": datetime.fromtimestamp(health_data["last_seen"]).isoformat(),
             "last_error": health_data["last_error"],
+            "backoff_interval": health_data["backoff_interval"],
         }
         heartbeat_summary.append(heartbeat)
 
